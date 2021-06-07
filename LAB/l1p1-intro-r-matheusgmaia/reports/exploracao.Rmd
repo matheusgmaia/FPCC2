@@ -1,0 +1,148 @@
+---
+title: "Exploração do clima em João Pessoa, Campina Grande e Patos - PB"
+author: "Matheus Gomes Maia"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+# Atividade L1P1 - FPCC2
+# Aluno: Matheus Gomes Maia
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+theme_set(theme_bw())
+```
+
+Nesse exercício vamos fazer um relatório respondendo algumas perguntas sobre os dados climáticos das cidades de João Pessoa, Campina Grande e Patos.
+
+Leitura dos dados:
+```{r}
+# SEMPRE read_csv NUNCA read.csv
+clima_tudo = read_csv(
+    here("data/tempo-jp-cg-pt.csv"),
+    col_types = cols(
+        .default = col_double(),
+        cidade = col_character(),
+        semana = col_date(format = ""),
+        ano = col_integer(),
+        mes = col_integer()
+    )
+)
+
+clima2019 = clima_tudo %>% 
+    filter(ano == 2019) 
+
+clima2019 %>% 
+    slice(1:8)
+```
+
+## 1. Análise dos Ventos
+  Vamos analisar os ventos nas três cidades no ano de 2019: 
+
+```{r}
+ggplot(clima_tudo %>% filter(ano == 2019) , aes(x = semana, y = vento_medio, color = cidade)) +
+  geom_line()+
+  geom_point() + 
+  ggtitle("Velocidade dos Ventos 2019")+ 
+  labs(
+         x = "Datas", 
+         y = "Velocidade Média dos Ventos"
+    )
+```
+
+Os picos e vales se alinham em muitas semanas, o que indica que a velocidade média dos ventos nas três cidades está correlacionada em parte do tempo. Campina Grande foi a cidade com ventos mais fortes em 2019. Patos venta como em João Pessoa no começo do ano e como Campina Grande no fim do ano.
+
+
+```{r}
+ggplot(clima_tudo %>% filter(ano == 2019) , aes(x = cidade, y = vento_medio, color = cidade)) +
+    geom_jitter(width = 0.05, alpha = .6) + 
+    geom_violin(alpha = 0.05)+
+    ggtitle("Velocidade dos Ventos - Semanas ")+ 
+    labs(
+         x = "Cidades", 
+         y = "Vento Médio Semanal"
+    )
+```
+
+João Pessoa possui uma concentração grande de medidas, enquanto que Patos e Campina Grande têm medidas mais espalhadas.
+
+
+## 2. Análise Calor no Verão
+
+Vamos analisar os meses mais quentes entre janeiro e marco nas três cidades.
+    
+
+```{r warning=FALSE}
+verao = clima_tudo %>% filter(mes < 4)  %>% 
+  filter(semana > "2018-04-10") %>% group_by(mes, ano, cidade) %>%
+  summarise(mean = median(temp_media), 
+            max = ifelse(any(is.na(temp_max)), temp_media, max(temp_max)), 
+            min = ifelse(any(is.na(temp_min)), temp_media, min(temp_min)))
+
+verao$Concat = paste(verao$cidade, verao$ano, "Mes", verao$mes ) 
+ggplot(verao,  aes(x = max, y = reorder(Concat, max), color = cidade)) +
+  geom_point()+
+  ggtitle("Temperatura Máxima Entre Janeiro e Marco 2019-2021 ")+ 
+  labs(
+       x = "Temperatura Máxima", 
+       y = "Cidade ,Ano e Mês"
+  )
+```
+
+Apesar de existiream dados faltantes para Patos nos ano de 2020 e 2021 é perceptível que os meses mais quentes são sempre em Patos. Em média, Campina Grande é sempre mais fria que Patos e João Pessoa, mas existem semanas em que Campina Grande é mais quente que João Pessoa. Segundo os dados, Março de 2020 foi bastate frio em Patos. Possívelmente um erro nos dados.
+
+
+```{r warning=FALSE}
+
+ggplot(verao, aes(x = mes, y = mean, color = cidade, ymin=min, ymax=max)) +
+  geom_pointrange(position=position_dodge(width=0.40))  + 
+  scale_x_continuous(breaks= scales::pretty_breaks(n = 3))+ 
+  ylab("Temperatura") + 
+  facet_grid(rows = vars(ano))+
+  ggtitle("Min, Media e Max Entre Janeiro e Marco 2019-2021")+ 
+  labs(
+       x = "Meses", 
+       y = "Temperatura (C)"
+  )
+```
+
+Existem dados de temperatura mínima faltantes para Campina Grande nos anos de 2020 e 2021. A amplitude térmica em Patos aparenta ser a maior. 
+
+## 3. Análise dos meses de Junho
+Como é a temperatura nas três cidades no período Junino?
+  
+```{r warning=FALSE}
+junho = clima_tudo %>% filter(mes == 6)%>%
+  group_by(mes, ano, cidade) %>%
+  summarise(mean = mean(temp_media), max = max(temp_max), min = min(temp_min))
+
+ggplot(junho, aes(x = ano, y = mean, color = cidade, ymin=min, ymax=max)) +
+  geom_line()+
+  geom_pointrange()+
+  scale_x_continuous(breaks= scales::pretty_breaks(n = 15))+ 
+  facet_grid(cols = vars(cidade))+
+  ggtitle("Temperaturas em Junho")+ 
+  labs(
+       x = "Ano", 
+       y = "Temperatura"
+  )+ theme(axis.text.x=element_text(angle=90, hjust=1))
+```
+
+A temperatura em junho não varia muito de ano para ano. Campina Grande é consideravelmente mais fria em junho do que nas outras duas cidades. O ano de 2011 foi um ano especialmente frio em todas as cidades.
+
+```{r warning=FALSE}
+junho$Concat = paste(junho$cidade, "- Junho de", junho$ano ) 
+ggplot(junho,  aes(x = mean, y = reorder(Concat, mean), color = cidade, ymin=min, ymax=max)) +
+  geom_point() +
+  geom_errorbarh(aes(xmin=min, xmax=max))+
+  ggtitle("Média, Min e Max de Junho. Ordenado por Média.")+ 
+  labs(
+       x = "Temperatura", 
+       y = "Junho de cada ano"
+  )
+```
+
+Os meses de Junho em Campina Grande são sempre os mais frios. Em Patos as amplitudes térmicas são maiores e lá foi registrada a semana mais fria, no ano de 2011. Existem dados faltantes nos anos mais recentes.
+

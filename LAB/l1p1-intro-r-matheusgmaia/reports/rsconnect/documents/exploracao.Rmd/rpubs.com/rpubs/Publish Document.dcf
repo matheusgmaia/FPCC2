@@ -1,0 +1,11 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/752825/b0248732941b43ac8c8dce4c476d8aea
+bundleId: https://api.rpubs.com/api/v1/document/752825/b0248732941b43ac8c8dce4c476d8aea
+url: http://rpubs.com/matheusgmaia/752825
+when: 1618167577.74216
+lastSyncTime: 1618167577.74216

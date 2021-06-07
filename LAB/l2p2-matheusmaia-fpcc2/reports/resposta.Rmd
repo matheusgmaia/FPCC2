@@ -1,0 +1,242 @@
+---
+title: 'L2P2: Mais distribuições, sumários e correlação'
+author: "Matheus Gomes Maia"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r warning=FALSE, message=FALSE}
+library(tidyverse)
+library(here)
+library(ggExtra)
+library(cowplot)
+
+theme_set(theme_bw())
+```
+
+```{r}
+clima_tudo = read_csv(
+    here("data/tempo-jp-cg-pt.csv"),
+    col_types = cols(
+        .default = col_double(),
+        cidade = col_character(),
+        semana = col_date(format = ""),
+        ano = col_integer(),
+        mes = col_integer()
+    )
+)
+
+clima10 = clima_tudo %>% 
+    filter(ano <= 2019, ano >= 2010, !is.na(temp_max))
+```
+
+Na resposta das perguntas abaixo queremos dar ênfase à análise de distribuições e usos de sumários, então não use nenhuma visualização de linha do tempo. Também lembre que a resposta a qualquer tarefa de análise é uma combinação de visualização de dados, sumários estatísticos e texto que interpreta ambos. Ao acabar cada resposta, confira se você tem esses 3 elementos. Você descreveu as distribuições envolvidas? Comentou em formato e pontos extremos? Está comentando as diferenças que observa? Elas são grandes? Pequenas?
+
+1. Descreva a relação entre temperatura média, umidade e chuvas por semana nas 3 cidades, analisando essas características duas a duas. Além de descrever as relações, comparando-as entre cidades e para uma mesma cidade, comente o que se deve esperar em geral em uma semana mais fria nas 3 cidades.
+
+2. Escolha duas das cidades e compare a temperatura e as chuvas das duas nos últimos doze meses. Quantifique e comente a diferença entre a temperatura nas duas cidades. Lembre que você tem medições pareadas das variáveis para as duas cidades, e lembre de olhar a distribuição além de qualquer sumário que você escolher.
+
+3. Escolha uma das cidades e compare a temperatura e as chuvas das semanas de 2021 com a temperatura e chuva das semanas dos últimos 10 anos. Esse ano tem sido um ano muito quente? Com muita chuva? Compare as distribuições.
+
+## Descreva a relação entre temperatura média, umidade e chuvas por semana nas 3 cidades, analisando essas características duas a duas.
+
+
+```{r}
+
+clima10 = clima_tudo %>% 
+    filter(ano <= 2019, ano >= 2010, !is.na(temp_max)) %>% 
+    group_by(cidade, semana, ano) %>%
+    summarise(temp_media = mean(temp_media),
+              umidade = mean(umidade),
+              chuva = mean(chuva),
+              .groups = "drop")
+semanas_frias = clima_tudo %>% 
+    filter(ano <= 2019, ano >= 2010, !is.na(temp_max)) %>% group_by(cidade) %>% top_n(-1, temp_media)
+```
+
+```{r warning=FALSE, message=FALSE}
+sumario = clima10 %>% 
+    group_by(cidade) %>% 
+    summarise(media_temp = mean(temp_media),
+              media_umidade = mean(umidade),
+              mediana_temp = median(temp_media),
+              mediana_umidade = median(umidade),
+              .groups = "drop")
+
+g <- ggplot(clima10 , aes(x = umidade, y = temp_media, color = cidade)) +
+    geom_point( alpha = .3, size=.5) + 
+    geom_point(data = semanas_frias, alpha = 1, size=2) + 
+    geom_point(data = sumario, mapping = aes(x = media_umidade, y=media_temp), size=3, pch=22, fill= "white")+
+    geom_point(data = sumario, mapping = aes(x = mediana_umidade, y=mediana_temp), size=3,pch=24, fill="white")+
+    ggtitle("TEMPERATURA MÉDIA por UMIDADE ")+ 
+    labs(
+         x = "UMIDADE", 
+         y = "TEMPERATURA MÉDIA"
+    )
+ggMarginal(g, groupColour=TRUE, type = "density", groupFill=TRUE, alpha=.5)
+```
+
+```{r warning=FALSE, message=FALSE}
+sumario = clima10 %>% 
+    group_by(cidade) %>% 
+    summarise(media_temp = mean(temp_media),
+              media_chuva = mean(chuva),
+              mediana_temp = median(temp_media),
+              mediana_chuva = median(chuva),
+              .groups = "drop")
+
+g <- ggplot(clima10 , aes(x = chuva, y = temp_media, color = cidade)) +
+    geom_point( alpha = .5, size = .5) + 
+    geom_point(data = semanas_frias, alpha = 1, size=2) + 
+    geom_point(data = sumario, mapping = aes(x = media_chuva, y=media_temp), size=3, pch=22, fill= "white")+
+    geom_point(data = sumario, mapping = aes(x = mediana_chuva, y=mediana_temp), size=3,pch=24, fill="white")+
+    ggtitle("TEMPERATURA MÉDIA por CHUVA ")+ 
+    scale_x_log10()+
+    labs(
+         x = "CHUVA", 
+         y = "TEMPERATURA MÉDIA"
+    )
+ggMarginal(g, groupColour=TRUE, type = "density", groupFill=TRUE, alpha=.5)
+```
+
+```{r warning=FALSE, message=FALSE}
+sumario = clima10 %>% 
+    group_by(cidade) %>% 
+    summarise(media_umidade = mean(umidade),
+              media_chuva = mean(chuva),
+              mediana_umidade = median(umidade),
+              mediana_chuva = median(chuva),
+              .groups = "drop")
+
+g <- ggplot(clima10 , aes(x = chuva, y = umidade, color = cidade)) +
+    geom_point( alpha = .3, size = .5) + 
+    geom_point(data = semanas_frias, alpha = 1, size=2) + 
+    geom_point(data = sumario, mapping = aes(x = media_chuva, y=media_umidade), size=3, pch = 22, fill = "white")+
+    geom_point(data = sumario, mapping = aes(x = mediana_chuva, y=mediana_umidade), size=3,pch = 24, fill = "white")+
+    ggtitle("UMIDADE por CHUVA ")+ 
+    scale_x_log10()+
+    labs(
+         x = "CHUVA", 
+         y = "UMIDADE"
+    )
+ggMarginal(g, groupColour=TRUE, type = "density", groupFill=TRUE, alpha=.5)
+```
+
+```{r}
+sumario = clima10 %>% 
+    group_by(cidade) %>% 
+    summarise(media_umidade = mean(umidade),
+              mediana_umidade = median(umidade),
+              media_chuva = mean(chuva),
+              mediana_chuva = median(chuva),
+              media_tempo = mean(temp_media),
+              mediana_tempo = median(temp_media),
+              corr_tempo_umidade = cor(temp_media, umidade),
+              corr_tempo_chuva = cor(temp_media, chuva),
+              corr_umidade_chuva = cor(umidade, chuva),
+              .groups = "drop")
+
+cidades = sumario$cidade
+t_sumario = as.data.frame(t(sumario[,-1]))
+colnames(t_sumario) <- cidades
+t_sumario
+```
+Nos gráficos de pares o quadrado representa a média e o triângulo a mediana. O ponto de maior tamanho apresenta os valores da semana mais fria registrada nos dados.
+
+A partir dos gŕaficos de pares e dos sumários apresentados podemos entender as distribuicões e correlacões presentes nos dados. 
+
+A temperatura média tem uma correlacão negativa com a umidade em todas as cidade, ou seja, quando a temperatura cai a umidade  também tende a cair. A temperatura tem menos relacão com o chuva do que com a umidade.
+
+É interessante observar que a chuva tem menos relacão com o temperatura na cidade de Patos do que nas outras cidades, ou seja, quando chove em patos a temperatura não tende e cair como cai nas outras cidades.
+
+A umidade e a chuva apresentam uma correlacão positiva em todas as cidades, sendo moderada em Patos e forte nas demais cidades. Ou seja, em Patos, a chuva não está fortemente correlacionada com queda de temperatura e aumento de umidade como nas outras cidades.  
+
+Uma semana fria em João Pessoa e Campina Grande, tende a ser uma semana chuvosa e com alta umidade. Já em Patos as semanas mais chuvosas não são, necessáriamente, as semanas mais frias. Essa tendência se confirma no extremo da semana mais fria registrada. A semana mais fria regristrada nas cidades Campina Grande e João Pessoa foi uma semana de muita chuva. Já em Patos a semana mais fria não choveu de maneira especial.
+
+
+## Escolha duas das cidades e compare a temperatura e as chuvas das duas nos últimos doze meses.
+
+```{r}
+jpacg = clima_tudo %>% 
+    filter(cidade != "Patos", !is.na(temp_max), mes < 4 & ano == 2021 | mes > 3 & ano == 2020) 
+
+jpacg_mes  = jpacg %>% 
+    group_by(cidade, mes) %>% 
+    summarise(temp_media = mean(temp_media),
+    chuva = mean(chuva),
+    semana = first(semana),
+    .groups = "drop")
+```
+
+```{r}
+iris1 <- ggplot(jpacg_mes, aes(x = reorder(mes, semana), y=temp_media, color = cidade, fill=cidade)) +
+  geom_bar(stat="identity",position = "dodge", alpha=0.5) +
+  theme_light() +
+    labs(
+         title= "Temperatura por cidade",
+         x = "Mês", 
+         y = "Temperatura"
+    )
+
+iris2 <- ggplot(jpacg_mes, aes(x = reorder(mes, semana), y=chuva, color = cidade, fill=cidade)) +
+  geom_bar(stat="identity",position = "dodge", alpha=0.5) +
+  theme_light() +
+    labs(
+         title= "Chuva por cidade",
+         x = "Mês", 
+         y = "Temperatura"
+    )
+
+plot_grid(iris1, iris2, labels = "AUTO", ncol = 1)
+```
+
+
+```{r}
+ggplot(jpacg, aes(x = reorder(mes, semana), y=chuva, color = cidade)) +
+  geom_boxplot(position = "dodge", alpha=0.5) +
+  theme_light() +
+    labs(
+         title= "Chuva por cidade",
+         x = "Mês", 
+         y = "Chuva"
+    )
+```
+
+```{r}
+ggplot(jpacg, aes(x = reorder(mes, semana), y=temp_media, color = cidade)) +
+  geom_boxplot(position = "dodge", alpha=0.5) +
+  theme_light() +
+    labs(
+         title= "Temperatura por cidade",
+         x = "Mes", 
+         y = "Temperatura"
+    )
+```
+
+
+
+Nos ultimos doze meses em João Pessoa choveu e fez mais calor do que em Campina Grande. Se o comportamento do último ano se repetir, em João Pessoa vai chover muito nos próximos meses. A amplitude de milimetros de chuva em João Pessoa é grande, ou seja, dentro de um mesmo mês as semanas se diferem muito na quantidade de chuva. No intervalo de tempo estudado, Campina Grande é sempre mais fria nas médias das semanas do que em João Pessoa. 
+
+## Escolha uma das cidades e compare a temperatura e as chuvas das semanas de 2021 com a temperatura e chuva das semanas dos últimos 10 anos
+
+```{r}
+cg2021 = clima_tudo %>% 
+    filter(cidade == "Campina Grande", ano == 2021, mes < 4, !is.na(temp_max))
+
+cga2021 = clima_tudo %>% 
+    filter(cidade == "Campina Grande", ano < 2021, mes < 4, !is.na(temp_max))
+
+ggplot(cga2021, aes(x  = temp_media, y = chuva)) + 
+    geom_point(data= cga2021) +
+    geom_point(data= cg2021, aes(x  = temp_media, y = chuva), color = "blue") +
+    facet_wrap(~ano) + 
+    labs(
+        title = "Temperatura Média X Chuva",
+        x = "TEMPERATURA MÉDIA",
+        y = "CHUVA"
+)
+
+```
+
+O ano de 2021 até agora tem uma distribuicão parecida com o ano de 2017 e 2025, o que consiste em semanas com poucas chuvas e temeperatura média entre 25 e 27.

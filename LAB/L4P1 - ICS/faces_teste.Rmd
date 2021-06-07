@@ -1,0 +1,117 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+theme_set(theme_bw())
+library(boot)
+library(broom)
+library(dplyr)
+
+```
+
+
+```{r}
+dados = read_csv(here::here("leniency.csv"))
+dados
+```
+
+```{r}
+dados %>% ggplot( aes(x=smile, y = leniency, color=smile)) + 
+                      geom_jitter(width = 0.1, height =.05)+
+    geom_violin(alpha = 0.1)+
+    stat_summary(fun=mean, color = "black")+
+    scale_y_continuous(breaks =seq(1,10, 0.5))+
+    labs(
+         x = "Tipo SMILE", 
+         y = "Leniency",
+         title = "Leniency por smile"
+    )
+```
+
+```{r}
+smile = dados %>%
+    group_by(with_smile) %>% 
+    summarise(media = mean(leniency), .groups = "drop")
+
+s = smile %>% filter(with_smile == "yes") %>% pull(media)
+ns = smile %>% filter(with_smile == "no") %>% pull(media)
+theta_chapeu = s - ns
+
+theta_chapeu
+```
+
+```{r}
+thetaS <- function(d) {
+    smile = d %>%
+        mutate(scenario_embaralhado = sample(with_smile, n())) %>% 
+        group_by(scenario_embaralhado) %>% 
+        summarise(lenincy_emb = mean(leniency), .groups = "drop")
+    
+    s = smile %>% filter(scenario_embaralhado == "yes") %>% pull(lenincy_emb)
+    ns = smile %>% filter(scenario_embaralhado == "no") %>% pull(lenincy_emb)
+    s - ns
+}
+
+thetaS(dados)
+```
+
+```{r}
+diff = replicate(10000, {thetaS(dados)})
+pvalor = sum(abs(diff) >= abs(theta_chapeu))  / length(diff)
+
+tibble(diferenca = diff) %>% 
+    ggplot(aes(x=diferenca)) +
+    geom_density(fill="white", color="darkgreen")+
+    geom_vline(xintercept = theta_chapeu, color = "orange")+
+    geom_vline(xintercept = -theta_chapeu, color = "orange")+
+    labs(
+             x = "Diferenca", 
+             y = "Densidade",
+        title = paste("P-valor = ", pvalor, "Smile x No-Smile")
+    )
+
+```
+
+```{r}
+
+```
+
+
+```{r}
+thetaS <- function(d, one, two) {
+    smile = d %>%
+        mutate(scenario_embaralhado = sample(smile, n())) %>% 
+        group_by(scenario_embaralhado) %>% 
+        summarise(lenincy_emb = mean(leniency), .groups = "drop")
+    
+    s = smile %>% filter(scenario_embaralhado == one) %>% pull(lenincy_emb)
+    ns = smile %>% filter(scenario_embaralhado == two) %>% pull(lenincy_emb)
+    s - ns
+}
+
+thetaSmile <- function(dados, one, two) {
+    diff = replicate(2000, {thetaS(dados, one, two)})
+    result = sum(abs(diff) >= abs(theta_chapeu))  / length(diff)
+    result
+}
+```
+
+```{r}
+fal_fel = thetaSmile(dados, "false smile", "felt smile")
+fal_mis = thetaSmile(dados, "false smile", "miserable smile")
+fal_nos = thetaSmile(dados, "false smile", "no smile (control)")
+fel_mis = thetaSmile(dados, "felt smile", "miserable smile")
+fel_nos = thetaSmile(dados, "felt smile", "no smile (control)")
+mis_nos = thetaSmile(dados, "miserable smile", "no smile (control)")
+
+DiffMedias <- rbind(fal_fel, fal_mis, fal_nos, fel_mis, fel_nos, mis_nos)
+```
+
+```{r}
+DiffMedias
+```
+

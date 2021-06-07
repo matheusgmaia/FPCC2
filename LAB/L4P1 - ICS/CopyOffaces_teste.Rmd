@@ -1,0 +1,161 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+theme_set(theme_bw())
+library(boot)
+library(broom)
+library(ggpubr)
+library(dplyr)
+```
+
+
+```{r}
+dados = read_csv(here::here("sat-gpa.csv"))
+dados
+```
+
+```{r}
+plot1 <- dados %>% ggplot() + 
+    geom_jitter(aes(x = "comp_GPA", y =comp_GPA), width = 0.05, height =.01, color="red") + 
+    geom_jitter(aes(x = "univ_GPA", y =univ_GPA ), width = 0.05, height =.01, color="red") +
+    geom_violin(aes(x = "univ_GPA", y =univ_GPA ), alpha = 0.1, color="red") + 
+    geom_violin(aes(x = "comp_GPA", y =comp_GPA ), alpha = 0.1, color="red") + 
+    labs(
+         x = "TESTE", 
+         y = "NOTA"
+    )
+
+plot2 <-  dados %>% ggplot() + 
+    geom_jitter(aes(x = "math_SAT", y =math_SAT), width = 0.05, height =.01, color="blue") + 
+    geom_jitter(aes(x = "verb_SAT", y =verb_SAT ), width = 0.05, height =.01, color="blue") + 
+    geom_violin(aes(x = "math_SAT", y =math_SAT ), alpha = 0.1, color="blue") + 
+    geom_violin(aes(x = "verb_SAT", y =verb_SAT ), alpha = 0.1, color="blue") + 
+        labs(
+         x = "TESTE", 
+         y = "NOTA"
+    )
+
+figure <- ggarrange(plot1, plot2,
+                    labels = c("GPA", "SAT"),
+                    ncol = 2, nrow = 1)
+figure
+```
+
+```{r}
+plot1Cor <- cor(dados$math_SAT, dados$verb_SAT, method ="pearson")
+plot1 <- dados %>% ggplot() + 
+    geom_point(aes(x = math_SAT, y =verb_SAT))+
+    labs(
+         x = paste("math_SAT",  round(plot1Cor, 2)), 
+         y = "verb_SAT"
+    )
+
+plot2Cor <- cor(dados$math_SAT, dados$comp_GPA, method ="pearson")
+plot2 <- dados %>% ggplot() + 
+    geom_point(aes(x = math_SAT, y =comp_GPA)) +
+    labs(
+         x = paste("math_SAT",  round(plot2Cor,2)), 
+         y = "comp_GPA"
+    )
+
+plot3Cor <- cor(dados$math_SAT, dados$univ_GPA, method ="pearson")
+plot3 <- dados %>% ggplot() + 
+    geom_point(aes(x = math_SAT, y =univ_GPA)) +
+    labs(
+         x = paste("math_SAT",  round(plot3Cor, 2)), 
+         y = "univ_GPA"
+    )
+
+plot4Cor <- cor(dados$verb_SAT, dados$comp_GPA, method ="pearson")
+plot4 <- dados %>% ggplot() + 
+    geom_point(aes(x = verb_SAT, y =comp_GPA)) +
+    labs(
+         x = paste("verb_SAT",  round(plot4Cor, 2)),
+         y = "comp_GPA"
+    )
+
+
+plot5Cor <- cor(dados$verb_SAT, dados$univ_GPA, method ="pearson")
+plot5 <- dados %>% ggplot() + 
+    geom_point(aes(x = verb_SAT, y =univ_GPA)) +
+    labs(
+         x = paste("verb_SAT",  round(plot5Cor, 2)),
+         y = "univ_GPA"
+    )
+
+plot6Cor <- cor(dados$comp_GPA, dados$univ_GPA, method ="pearson")
+plot6 <- dados %>% ggplot() + 
+    geom_point(aes(x = comp_GPA, y =univ_GPA)) +
+    labs(
+         x = paste("comp_GPA",  round(plot6Cor, 2)),
+         y = "univ_GPA"
+    )
+
+figure <- ggarrange(plot1, plot2, plot3, plot4, plot5, plot6,
+                    ncol = 3, nrow = 2)
+figure
+```
+
+
+
+
+```{r}
+f_minmax <- function(x){
+  return((x - min(x))/(max(x)-min(x)))
+}
+
+thetaS <- function(one, two) {
+    one <- f_minmax(one)
+    two <- f_minmax(two)
+    all = append(one, two)
+    all = sample(all, length(all))
+    allH = all[0:(length(all)/2)]
+    allT = all[(length(all)/2+1):length(all)]
+    c = cor(allH, allT)
+    c
+}
+
+hipTestCor <- function(one, two, texto) {
+    diff = replicate(100000, {thetaS(one, two)})
+    theta_chapeu = cor(f_minmax(one), f_minmax(two))
+    p_valor = sum(abs(diff) >= abs(theta_chapeu))  / length(diff)
+    
+    plot = tibble(diferenca = diff) %>% 
+        ggplot(aes(x=diferenca)) +
+        geom_density(fill="white", color="darkgreen")+
+        geom_vline(xintercept = theta_chapeu, color = "orange")+
+        geom_vline(xintercept = -theta_chapeu, color = "orange") +
+        scale_x_continuous(breaks = c(-0.25, -0.5, 0.25, 0.5, -round(theta_chapeu, 3), round(theta_chapeu, 3)))+
+        labs(
+             x = "Densidade", 
+             y = "COR",
+        title = paste("P-valor = ", p_valor, texto)
+    )
+    
+    
+    plot
+}
+```
+
+```{r}
+teste_math_SAT_comp_GPA = hipTestCor(dados$math_SAT, dados$comp_GPA, " math_SAT x comp_GPA")
+teste_math_SAT_univ_GPA = hipTestCor(dados$math_SAT, dados$univ_GPA, " math_SAT x univ_GPA")
+teste_verb_SAT_comp_GPA = hipTestCor(dados$verb_SAT, dados$comp_GPA, " verb_SAT x comp_GPA")
+teste_verb_SAT_univ_GPA = hipTestCor(dados$verb_SAT, dados$univ_GPA, " verb_SAT x univ_GPA")
+```
+
+```{r}
+teste_math_SAT_comp_GPA
+teste_math_SAT_univ_GPA
+teste_verb_SAT_comp_GPA
+teste_verb_SAT_univ_GPA
+```
+```{r}
+teste_math_SAT_comp_GPA
+```
+
