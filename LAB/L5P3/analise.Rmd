@@ -1,0 +1,99 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(janitor)
+library(reshape2)
+library(pscl)
+theme_set(theme_bw())
+```
+
+
+```{r}
+dados = read_csv(here::here("speed-dating2.csv"))
+dados
+dados %>% 
+    skim()
+```
+
+```{r}
+dados %>% ggplot(aes(x=factor(samerace, ), fill=dec))+
+    geom_bar(position="fill")
+```
+```{r}
+dados = dados %>% mutate(age_diff = abs(age - age_o))
+df_age <- dados %>% select(dec, age, age_o, age_diff) %>% melt(variable.name = 'series')
+df_age %>% ggplot(aes(fill=dec)) +
+    geom_bar(aes(x=value), position="fill") +
+    facet_grid(series ~.,  scales = "free")
+```
+
+```{r}
+dados %>% ggplot(aes(fill=dec, x=order))+
+    geom_bar(position="fill")
+```
+
+```{r}
+dados %>% ggplot(aes(fill=dec, x=factor(attr)))+
+    geom_bar(position="fill")
+```
+
+```{r}
+df <- dados %>% select(dec, gaming, reading, sports, music) %>% melt(variable.name = 'series')
+df %>% ggplot(aes(fill=dec)) +
+    geom_bar(aes(x=value), position="fill") +
+    facet_grid(series ~.,  scales = "free")
+    
+```
+```{r}
+dados
+dados_model = dados %>% mutate(dec_target = case_when(.$dec == "no" ~ 0,
+                                                      .$dec == "yes" ~ 1))
+dados_model 
+bm <- glm(dec_target ~ factor(samerace) + order + age_diff + attr, data = dados_model, family="binomial")
+
+tidy(bm, conf.int = "TRUE")
+tidy(bm, conf.int = "TRUE", exponentiate = TRUE) %>% select(-p.value)
+
+glance(bm)
+pR2(bm)
+```
+
+```{r}
+m = dados_model %>% data_grid(age_diff,
+                              samerace,
+                              attr	  = seq_range(attr	, 1),
+                              order = seq_range(order, 1))
+
+mm = augment(bm, newdata = m, type.predict = "response")
+
+ggplot(mm, aes(x=age_diff)) +
+    geom_line(aes(y = .fitted)) + 
+    facet_grid(.~ reorder(samerace, .fitted)) + 
+    scale_color_brewer() + 
+    labs(x = "Age Diff", 
+         y = "Fitted", 
+         title = "Fitted por SameRace e Age Diff")
+```
+```{r}
+m = dados_model %>% data_grid(age_diff = seq_range(age_diff, 1),
+                              samerace = seq_range(samerace, 1),
+                              attr	,
+                              order  = seq_range(order, 4))
+
+mm = augment(bm, newdata = m, type.predict = "response")
+
+ggplot(mm, aes(x=attr	)) +
+    geom_line(aes(y = .fitted)) + 
+    facet_grid(.~ reorder(order, .fitted)) + 
+    scale_color_brewer() +
+    labs(x = "Gaming", 
+     y = "Fitted", 
+     title = "Fitted por Order e Attr")
+```
